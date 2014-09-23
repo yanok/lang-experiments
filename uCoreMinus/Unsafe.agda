@@ -9,6 +9,7 @@ Word = BitVector width
 open import Data.List
 open import Data.List.Any
 open Membership-≡
+open Membership-≡ public using (_∈_)
 
 data Ty : Set where
   unit word ptr : Ty
