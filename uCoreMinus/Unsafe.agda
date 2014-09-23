@@ -7,8 +7,7 @@ open BV using (BitVector)
 Word = BitVector width
 
 open import Data.List
-open import Data.List.Any
-open Membership-≡
+open import Data.List.Any public using (module Membership-≡; here; there)
 open Membership-≡ public using (_∈_)
 
 data Ty : Set where
