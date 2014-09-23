@@ -58,3 +58,55 @@ mutual
             Term Γ ([| lit bottom < t |] *T [| t < lit top |]) → -- proof
             Term Γ ptr
 
+module ProofErasure where
+  import uCoreMinus.Unsafe width as U
+  open U hiding (Ty; Term; Cxt; _∈_)
+  open import Data.List
+  open import Data.List.Any
+  open import Relation.Binary.PropositionalEquality
+
+  eraseType : ∀ {Γ} → Ty Γ → U.Ty
+  eraseType (weaken τ) = eraseType τ
+  eraseType unit = unit
+  eraseType word = word
+  eraseType ptr = ptr
+  eraseType (τ => τ₁) = eraseType τ => eraseType τ₁
+  eraseType (τ +T τ₁) = eraseType τ +T eraseType τ₁
+  eraseType (τ *T τ₁) = eraseType τ *T eraseType τ₁
+  eraseType [| x ≠0|] = unit
+  eraseType [| x =0|] = unit
+  eraseType [| x < x₁ |] = unit
+  eraseType [| x ≤ x₁ |] = unit
+
+  eraseCxt : Cxt → U.Cxt
+  eraseCxt [] = []
+  eraseCxt (Γ <: τ) = eraseType τ ∷ eraseCxt Γ
+
+  convertIdx : ∀ {Γ Γ′}{τ : Ty Γ′} → τ ∈ Γ → eraseType τ U.∈ eraseCxt Γ
+  convertIdx here = here refl
+  convertIdx (there i) = there (convertIdx i)
+
+  erase : ∀ {Γ τ} → Term Γ τ → U.Term (eraseCxt Γ) (eraseType τ)
+  erase ∅ = ∅
+  erase (lit x) = lit x
+  erase (var x) = var (convertIdx x)
+  erase (t ∙ t₁) = erase t ∙ erase t₁
+  erase (lam σ t) = lam (eraseType σ) (erase t)
+  erase (inl τ t) = inl (eraseType τ) (erase t)
+  erase (inr σ t) = inr (eraseType σ) (erase t)
+  erase (case t t₁ t₂) = case (erase t) (erase t₁) (erase t₂)
+  erase (t , t₁) = erase t , erase t₁
+  erase (fst t) = fst (erase t)
+  erase (snd t) = snd (erase t)
+  erase (t + t₁) = erase t + erase t₁
+  erase (t - t₁) = erase t - erase t₁
+  erase (t * t₁) = erase t * erase t₁
+  erase (t / t₁ < t₂ >) = erase t / erase t₁
+  erase (t b& t₁) = erase t b& erase t₁
+  erase (t b| t₁) = erase t b| erase t₁
+  erase (t b^ t₁) = erase t b^ erase t₁
+  erase (b~ t) = b~ erase t
+  erase (t ≟0) = erase t ≟0
+  erase (t <? t₁) = erase t <? erase t₁
+  erase (peek t) = peek (erase t)
+  erase (pcast t t₁) = pcast (erase t)
